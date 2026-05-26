@@ -15,7 +15,7 @@ public class AuthController : ControllerBase
     {
         _authService = authService;
     }
-    
+
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequest request)
@@ -45,7 +45,7 @@ public class AuthController : ControllerBase
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
-                Expires = DateTime.UtcNow.AddDays(30)
+                Expires = DateTime.UtcNow.AddDays(10)
             });
         }
         var data = new LoginResponse
@@ -63,7 +63,7 @@ public class AuthController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
-            return Unauthorized(ApiResponse<string>.Failure("Refresh token not found",null,401));
+            return Unauthorized(ApiResponse<string>.Failure("Refresh token not found", null, 401));
         }
 
         var request = new RefreshTokenRequest
@@ -85,7 +85,7 @@ public class AuthController : ControllerBase
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
-                Expires = DateTime.UtcNow.AddDays(30)
+                Expires = DateTime.UtcNow.AddDays(10)
             });
         }
 
@@ -94,6 +94,40 @@ public class AuthController : ControllerBase
             AccessToken = result.Data!.AccessToken
         };
 
-        return Ok(ApiResponse<LoginResponse>.Success(data, result.Message,result.StatusCode));
+        return Ok(ApiResponse<LoginResponse>.Success(data, result.Message, result.StatusCode));
+    }
+
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        var refreshToken = Request.Cookies["RefreshToken"];
+
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return NotFound(
+                ApiResponse<string>.Failure("Refresh token not found", statusCode: 404));
+        }
+
+        var request = new LogoutRequest
+        {
+            RefreshToken = refreshToken
+        };
+
+        var result = await _authService.Logout(request);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result);
+        }
+
+        Response.Cookies.Delete("RefreshToken", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None
+        });
+
+        return Ok(ApiResponse<string>.Success(result.Message, statusCode: result.StatusCode));
     }
 }

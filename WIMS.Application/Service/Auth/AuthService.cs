@@ -61,7 +61,7 @@ public class AuthService : IAuthService
         }
 
         GenerateTokenResponse tokenResponse = _jwtService.generateToken(user);
-        user.RefreshToken = tokenResponse.RefreshToken;
+        user.RefreshToken = _passwordHasher.RefreshHash(tokenResponse.RefreshToken);
         user.RefreshTokenExpiryTime = tokenResponse.RefreshTokenExpiryTime;
         user.LastLoginAt = DateTime.UtcNow;
         user.FailedLoginAttempts = 0;
@@ -114,20 +114,40 @@ public class AuthService : IAuthService
     {
         var refreshToken = _inputNormalizer.Normalize(request.RefreshToken);
 
-        var user = await _userRepository.GetUserByRefreshTokenAsync(refreshToken);
+        var user = await _userRepository.GetUserByRefreshTokenAsync(_passwordHasher.RefreshHash(refreshToken));
 
         if (user == null || user.RefreshTokenExpiryTime == null || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
         {
-            return ApiResponse<GenerateTokenResponse>.Failure("Invalid refresh token");
+            return ApiResponse<GenerateTokenResponse>.Failure("Invalid refresh token",statusCode: 400);
         }
 
         GenerateTokenResponse tokenResponse = _jwtService.generateToken(user);
 
-        user.RefreshToken = tokenResponse.RefreshToken;
+        user.RefreshToken = _passwordHasher.RefreshHash(tokenResponse.RefreshToken);
         user.RefreshTokenExpiryTime = tokenResponse.RefreshTokenExpiryTime;
 
         await _userRepository.UpdateAsync(user);
 
         return ApiResponse<GenerateTokenResponse>.Success(tokenResponse,"Request successful.",200);
+    }
+
+
+    public async Task<ApiResponse<string>> Logout(LogoutRequest request)
+    {
+        var refreshToken = _inputNormalizer.Normalize(request.RefreshToken);
+
+        var user = await _userRepository.GetUserByRefreshTokenAsync(_passwordHasher.RefreshHash(refreshToken));
+
+        if (user == null)
+        {
+            return ApiResponse<string>.Failure("Invalid refresh token", null, 400);
+        }
+
+        user.RefreshToken = null;
+        user.RefreshTokenExpiryTime = null;
+
+        await _userRepository.UpdateAsync(user);
+
+        return ApiResponse<string>.Success("Logout Successfully","Logout Successfully",200);
     }
 }

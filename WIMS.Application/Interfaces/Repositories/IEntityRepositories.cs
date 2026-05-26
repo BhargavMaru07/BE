@@ -2,18 +2,6 @@ using WIMS.Domain.Entity;
 
 namespace WIMS.Application.Interfaces.Repositories;
 
-// ─────────────────────────────────────────────────────────────────────────
-// Every interface extends IGenericRepository<T>.
-// This gives it ALL methods automatically:
-//   GetAllAsync, GetAsync, GetPaginatedAsync (search+filter+sort+page),
-//   CreateAsync, AddAsync, StageUpdateAsync, UpdateAsync, DeleteAsync,
-//   SaveChangesAsync, ExistsAsync, CountAsync, GetQueryable,
-//   BeginTransactionAsync, CommitTransactionAsync, RollbackTransactionAsync,
-//   CreateSavepointAsync, RollbackToSavepointAsync, ReleaseSavepointAsync
-//
-// Only truly custom queries are added per interface below.
-// ─────────────────────────────────────────────────────────────────────────
-
 public interface IUserRepository : IGenericRepository<User>
 {
     Task<User?> GetByEmailAsync(string email);

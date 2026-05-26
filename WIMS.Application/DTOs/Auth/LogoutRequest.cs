@@ -2,8 +2,8 @@ using System.ComponentModel.DataAnnotations;
 
 namespace WIMS.Application.DTOs.Auth;
 
-public class RefreshTokenRequest
+public class LogoutRequest
 {
     [Required]
-    public required string RefreshToken {get; set;}
+    public required string RefreshToken { get; set; } 
 }
