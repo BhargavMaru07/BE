@@ -1,0 +1,6 @@
+@WIMS.Api_HostAddress = http://localhost:5136
+
+GET {{WIMS.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
