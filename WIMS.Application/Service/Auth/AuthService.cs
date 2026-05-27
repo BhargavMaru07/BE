@@ -22,7 +22,7 @@ public class AuthService : IAuthService
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _inputNormalizer = inputNormalizer;
-            _code = code;
+        _code = code;
     }
 
     public async Task<ApiResponse<GenerateTokenResponse>> Login(LoginRequest request)
@@ -70,7 +70,7 @@ public class AuthService : IAuthService
 
         await _userRepository.UpdateAsync(user);
 
-        return ApiResponse<GenerateTokenResponse>.Success(tokenResponse,"Login Successfully",200);
+        return ApiResponse<GenerateTokenResponse>.Success(tokenResponse, "Login Successfully", 200);
     }
 
     private bool IsUserLocked(User user)
@@ -115,14 +115,14 @@ public class AuthService : IAuthService
     public async Task<ApiResponse<GenerateTokenResponse>> RefreshToken(RefreshTokenRequest request)
     {
         Console.WriteLine("--------------------------------------------------");
-        Console.WriteLine(_code.GenerateCode("Warehouse",10));
+        Console.WriteLine(_code.GenerateCode("Warehouse", 10));
         var refreshToken = _inputNormalizer.Normalize(request.RefreshToken);
 
         var user = await _userRepository.GetUserByRefreshTokenAsync(_passwordHasher.RefreshHash(refreshToken));
 
         if (user == null || user.RefreshTokenExpiryTime == null || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
         {
-            return ApiResponse<GenerateTokenResponse>.Failure("Invalid refresh token",statusCode: 400);
+            return ApiResponse<GenerateTokenResponse>.Failure("Invalid refresh token", statusCode: 400);
         }
 
         GenerateTokenResponse tokenResponse = _jwtService.generateToken(user);
@@ -132,7 +132,36 @@ public class AuthService : IAuthService
 
         await _userRepository.UpdateAsync(user);
 
-        return ApiResponse<GenerateTokenResponse>.Success(tokenResponse,"Request successful.",200);
+        return ApiResponse<GenerateTokenResponse>.Success(tokenResponse, "Request successful.", 200);
+    }
+
+
+    public async Task<ApiResponse<string>> ChangePassword(ChangePasswordRequest request)
+    {
+        request = _inputNormalizer.NormalizeObject(request);
+
+        var user = await _userRepository.GetAsync(x => x.Id == request.UserId);
+
+        if (user == null)
+        {
+            return ApiResponse<string>.Failure("User not found", null, 404);
+        }
+
+        if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
+        {
+            return ApiResponse<string>.Failure("Current password is incorrect", null, 400);
+        }
+
+        if (request.CurrentPassword == request.NewPassword)
+        {
+            return ApiResponse<string>.Failure("New password cannot be the same as the current password", null, 400);
+        }
+
+        user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+
+        await _userRepository.UpdateAsync(user);
+
+        return ApiResponse<string>.Success("Password changed successfully", "Password changed successfully", 200);
     }
 
 
@@ -152,6 +181,6 @@ public class AuthService : IAuthService
 
         await _userRepository.UpdateAsync(user);
 
-        return ApiResponse<string>.Success("Logout Successfully","Logout Successfully",200);
+        return ApiResponse<string>.Success("Logout Successfully", "Logout Successfully", 200);
     }
 }

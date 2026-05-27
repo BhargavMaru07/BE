@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WIMS.Application.DTOs;
 using WIMS.Application.DTOs.Auth;
@@ -6,7 +8,7 @@ using WIMS.Application.Interfaces.Services.Auth;
 namespace WIMS.Api.Controllers.Auth;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/auth")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -129,5 +131,32 @@ public class AuthController : ControllerBase
         });
 
         return Ok(ApiResponse<string>.Success(result.Message, statusCode: result.StatusCode));
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        string? userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (userIdClaim == null || !int.TryParse(userIdClaim, out var userId)) return Unauthorized();
+
+        request.UserId = userId;
+
+        var result = await _authService.ChangePassword(request);
+
+        if (!result.IsSuccess)
+        {
+            if (result.StatusCode == 404)
+            {
+                return NotFound(result);
+            }
+            else
+            {
+                return BadRequest(result);
+            }
+        }
+
+        return Ok(result);
     }
 }
