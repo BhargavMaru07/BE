@@ -4,6 +4,7 @@ namespace WIMS.Application.DTOs.Auth;
 
 public class RefreshTokenRequest
 {
-    [Required]
+    [Required(ErrorMessage = "RefreshToken is required.")]
+    [MaxLength(500,ErrorMessage = "RefreshToken is nor exceed 500 characters.")]
     public required string RefreshToken {get; set;}
 }

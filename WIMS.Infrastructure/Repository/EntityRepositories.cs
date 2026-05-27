@@ -25,7 +25,7 @@ public class UserRepository : GenericRepository<User>, IUserRepository
             u.Email.ToLower() == email.ToLower() &&
             (excludeUserId == null || u.Id != excludeUserId));
 
-    public async Task<User?> GetUserByRefreshTokenAsync(string token) => await _dbSet.FirstOrDefaultAsync(u => u.RefreshToken == token);
+    public async Task<User?> GetUserByRefreshTokenAsync(string token) => await _dbSet.FirstOrDefaultAsync(u => u.RefreshTokenHash == token);
 }
 
 public class WarehouseRepository : GenericRepository<Warehouse>, IWarehouseRepository

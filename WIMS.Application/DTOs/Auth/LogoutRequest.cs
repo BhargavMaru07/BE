@@ -4,6 +4,7 @@ namespace WIMS.Application.DTOs.Auth;
 
 public class LogoutRequest
 {
-    [Required]
-    public required string RefreshToken { get; set; } 
+    [Required(ErrorMessage = "RefreshToken is required.")]
+    [MaxLength(500, ErrorMessage = "RefreshToken is nor exceed 500 characters.")]
+    public required string RefreshToken { get; set; }
 }

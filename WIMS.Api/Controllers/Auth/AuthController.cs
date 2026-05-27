@@ -159,4 +159,72 @@ public class AuthController : ControllerBase
 
         return Ok(result);
     }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+    {
+        var result = await _authService.ForgotPassword(request);
+
+        if (!result.IsSuccess)
+        {
+            if (result.StatusCode == 404)
+            {
+                return NotFound(result);
+            }
+            else
+            {
+                return BadRequest(result);
+            }
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
+    {
+        var result = await _authService.ResetPassword(request);
+
+        if (!result.IsSuccess)
+        {
+            if (result.StatusCode == 404)
+            {
+                return NotFound(result);
+            }
+            else
+            {
+                return BadRequest(result);
+            }
+        }
+
+        Response.Cookies.Delete("RefreshToken", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None
+        });
+
+        return Ok(result);
+    }
+
+    [HttpPost("validate-link")]
+    public async Task<IActionResult> ValidateLink(ValidateLinkRequest request)
+    {
+        var result = await _authService.ValidateLink(request);
+
+        if (!result.IsSuccess)
+        {
+            if (result.StatusCode == 404)
+            {
+                return NotFound(result);
+            }
+            else
+            {
+                return BadRequest(result);
+            }
+        }
+
+        return Ok(result);
+    }
+
 }

@@ -18,7 +18,7 @@ public class PasswordHasher : IPasswordHasher
         return valid;
     }
 
-    public string RefreshHash(string token)
+    public string NormalHash(string token)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToHexString(bytes).ToLower();
