@@ -14,13 +14,15 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IInputNormalizer _inputNormalizer;
+    private readonly ICodeGeneratorService _code;
 
-    public AuthService(IJwtService jwtService, IUserRepository userRepository, IPasswordHasher passwordHasher, IInputNormalizer inputNormalizer)
+    public AuthService(IJwtService jwtService, IUserRepository userRepository, IPasswordHasher passwordHasher, IInputNormalizer inputNormalizer, ICodeGeneratorService code)
     {
         _jwtService = jwtService;
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _inputNormalizer = inputNormalizer;
+            _code = code;
     }
 
     public async Task<ApiResponse<GenerateTokenResponse>> Login(LoginRequest request)
@@ -112,6 +114,8 @@ public class AuthService : IAuthService
 
     public async Task<ApiResponse<GenerateTokenResponse>> RefreshToken(RefreshTokenRequest request)
     {
+        Console.WriteLine("--------------------------------------------------");
+        Console.WriteLine(_code.GenerateCode("Warehouse",10));
         var refreshToken = _inputNormalizer.Normalize(request.RefreshToken);
 
         var user = await _userRepository.GetUserByRefreshTokenAsync(_passwordHasher.RefreshHash(refreshToken));
