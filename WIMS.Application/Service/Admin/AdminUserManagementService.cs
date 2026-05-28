@@ -70,7 +70,7 @@ public class AdminUserManagementService : IAdminUserManagementService
             PasswordHash = passwordHash,
             Role = request.Role,
             WarehouseId = request.WarehouseId,
-            Status = EntityStatus.Active,
+            Status = UserStatus.Active,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = createdByUserId
         };
@@ -153,7 +153,7 @@ public class AdminUserManagementService : IAdminUserManagementService
             return ApiResponse<UserResponseDto>.Failure(
                 "You cannot change your status.", statusCode: 400);
 
-        if (request.Status == EntityStatus.Locked)
+        if (request.Status == UserStatus.Locked)
             return ApiResponse<UserResponseDto>.Failure(
                 "Locked status is managed by the system only.", statusCode: 400);
 
@@ -166,7 +166,7 @@ public class AdminUserManagementService : IAdminUserManagementService
         user.ModifiedBy = modifiedByUserId;
 
         // If reactivating a locked user, clear lock fields
-        if (request.Status == EntityStatus.Active)
+        if (request.Status == UserStatus.Active)
         {
             user.FailedLoginAttempts = 0;
             user.LockedUntil = null;
@@ -194,7 +194,7 @@ public class AdminUserManagementService : IAdminUserManagementService
         if (userId == modifiedByUserId)
             return ApiResponse<UserResponseDto>.Failure("You cannot change your own role.", statusCode: 400);
 
-        if (user.Status == EntityStatus.Inactive)
+        if (user.Status == UserStatus.Inactive)
             return ApiResponse<UserResponseDto>.Failure("Cannot change role of an inactive user. Activate the user first.", statusCode: 400);
 
         var warehouseValidation = await ValidateWarehouseForRole(request.Role, request.WarehouseId);

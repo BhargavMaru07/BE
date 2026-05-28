@@ -2,7 +2,7 @@ using WIMS.Domain.Enums;
 
 namespace WIMS.Domain.Entity;
 
-public class Zone : AuditableEntity
+public class Zone : SoftDeletableEntity
 {
 public required int WarehouseId { get; set; }
 public required string Code { get; set; }

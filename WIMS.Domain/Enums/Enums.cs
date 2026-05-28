@@ -8,11 +8,16 @@ public enum UserRole
     Viewer
 }
 
-public enum EntityStatus
+public enum UserStatus
 {
     Active,
     Inactive,
     Locked
+}
+public enum EntityStatus
+{
+    Active,
+    Inactive,
 }
 
 public enum PoStatus

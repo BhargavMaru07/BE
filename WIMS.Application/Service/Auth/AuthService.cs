@@ -58,7 +58,7 @@ public class AuthService : IAuthService
         {
             IncreaseFailedLoginAttempts(user);
 
-            if (user.Status == EntityStatus.Locked)
+            if (user.Status == UserStatus.Locked)
             {
                 return ApiResponse<GenerateTokenResponse>.Failure($"Your account is locked due to multiple failed login attempts. Please try again after {user.LockedUntil}.", null, 403);
             }
@@ -79,7 +79,7 @@ public class AuthService : IAuthService
 
     private bool IsUserLocked(User user)
     {
-        if (user.Status == EntityStatus.Locked && user.LockedUntil != null)
+        if (user.Status == UserStatus.Locked && user.LockedUntil != null)
         {
             if (DateTime.UtcNow < user.LockedUntil)
             {
@@ -87,7 +87,7 @@ public class AuthService : IAuthService
             }
             else
             {
-                user.Status = EntityStatus.Active;
+                user.Status = UserStatus.Active;
                 user.FailedLoginAttempts = 0;
                 user.LockedUntil = null;
                 _userRepository.UpdateAsync(user);
@@ -99,7 +99,7 @@ public class AuthService : IAuthService
 
     private bool IsUserInActive(User user)
     {
-        return user.Status == EntityStatus.Inactive;
+        return user.Status == UserStatus.Inactive;
     }
 
     private void IncreaseFailedLoginAttempts(User user)
@@ -108,7 +108,7 @@ public class AuthService : IAuthService
 
         if (user.FailedLoginAttempts >= 5)
         {
-            user.Status = EntityStatus.Locked;
+            user.Status = UserStatus.Locked;
             user.LockedUntil = DateTime.UtcNow.AddMinutes(30);
         }
 
