@@ -66,7 +66,3 @@ public class AppDbContext : DbContext
     }
 
 }
-
-// dotnet ef migrations add AddSoftDeleteAndStatusRefactor --project WIMS.Infrastructure --startup-project WIMS.Api
-
-// dotnet ef database update --project WIMS.Infrastructure --startup-project WIMS.Api

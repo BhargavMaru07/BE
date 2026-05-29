@@ -9,7 +9,7 @@ using WIMS.Application.Interfaces.Services.Admin;
 namespace WIMS.Api.Controllers.Admin;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/admin")]
 [Authorize(Policy = "AdminOnly")]
 public class AdminController : ControllerBase
 {

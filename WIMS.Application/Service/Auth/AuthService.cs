@@ -1,5 +1,7 @@
+using System.ComponentModel.Design;
 using System.Security.Cryptography;
 using MailKit.Net.Smtp;
+using WIMS.Application.CommonServices;
 using WIMS.Application.DTOs;
 using WIMS.Application.DTOs.Auth;
 using WIMS.Application.Interfaces.Common;
@@ -46,9 +48,10 @@ public class AuthService : IAuthService
             return ApiResponse<GenerateTokenResponse>.Failure("Your account is inactive. Please contact Admin.", null, 403);
         }
 
-        if (IsUserLocked(user))
+        if (await IsUserLocked(user))
         {
-            return ApiResponse<GenerateTokenResponse>.Failure($"Your account is locked due to multiple failed login attempts. Please try again after {user.LockedUntil}.", null, 403);
+            var istTime = HelperService.ToIST(user.LockedUntil!.Value);
+            return ApiResponse<GenerateTokenResponse>.Failure($"Your account is locked due to multiple failed login attempts. Please try again after {istTime:dd MMM yyyy, hh:mm tt} IST.", null, 403);
         }
 
 
@@ -56,11 +59,12 @@ public class AuthService : IAuthService
 
         if (isValidPassword == false)
         {
-            IncreaseFailedLoginAttempts(user);
+            await IncreaseFailedLoginAttempts(user);
 
             if (user.Status == UserStatus.Locked)
             {
-                return ApiResponse<GenerateTokenResponse>.Failure($"Your account is locked due to multiple failed login attempts. Please try again after {user.LockedUntil}.", null, 403);
+                var istTime = HelperService.ToIST(user.LockedUntil!.Value);
+                return ApiResponse<GenerateTokenResponse>.Failure($"Your account is locked due to multiple failed login attempts. Please try again after {istTime:dd MMM yyyy, hh:mm tt} IST.", null, 403);
             }
 
             return ApiResponse<GenerateTokenResponse>.Failure("Invalid Credentials", null, 400);
@@ -77,7 +81,7 @@ public class AuthService : IAuthService
         return ApiResponse<GenerateTokenResponse>.Success(tokenResponse, "Login Successfully", 200);
     }
 
-    private bool IsUserLocked(User user)
+    private async Task<bool> IsUserLocked(User user)
     {
         if (user.Status == UserStatus.Locked && user.LockedUntil != null)
         {
@@ -90,7 +94,7 @@ public class AuthService : IAuthService
                 user.Status = UserStatus.Active;
                 user.FailedLoginAttempts = 0;
                 user.LockedUntil = null;
-                _userRepository.UpdateAsync(user);
+               await _userRepository.UpdateAsync(user);
                 return false;
             }
         }
@@ -102,7 +106,7 @@ public class AuthService : IAuthService
         return user.Status == UserStatus.Inactive;
     }
 
-    private void IncreaseFailedLoginAttempts(User user)
+    private async Task IncreaseFailedLoginAttempts(User user)
     {
         user.FailedLoginAttempts += 1;
 
@@ -112,7 +116,7 @@ public class AuthService : IAuthService
             user.LockedUntil = DateTime.UtcNow.AddMinutes(30);
         }
 
-        _userRepository.UpdateAsync(user);
+        await _userRepository.UpdateAsync(user);
     }
 
     public async Task<ApiResponse<GenerateTokenResponse>> RefreshToken(RefreshTokenRequest request)

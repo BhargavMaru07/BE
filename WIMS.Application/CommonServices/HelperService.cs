@@ -10,4 +10,10 @@ public static class HelperService
         entity.DeletedBy = deletedByUserId;
         entity.DeletedOn = DateTime.UtcNow;
     }
+
+    public static DateTime ToIST(DateTime utcTime)
+    {
+        TimeZoneInfo ist = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        return TimeZoneInfo.ConvertTimeFromUtc(utcTime, ist);
+    }
 }
