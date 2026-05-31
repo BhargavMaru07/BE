@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -11,13 +12,16 @@ using Serilog.Events;
 using WIMS.Api.Middlewares;
 using WIMS.Application.Common.Services;
 using WIMS.Application.CommonServices;
+using WIMS.Application.DTOs;
 using WIMS.Application.Interfaces.Common;
 using WIMS.Application.Interfaces.Repositories;
 using WIMS.Application.Interfaces.Services.Admin;
+using WIMS.Application.Interfaces.Services.Audit;
 using WIMS.Application.Interfaces.Services.Auth;
 using WIMS.Application.Interfaces.Services.Profile;
 using WIMS.Application.Mappings;
 using WIMS.Application.Service.Admin;
+using WIMS.Application.Service.Audit;
 using WIMS.Application.Service.Auth;
 using WIMS.Application.Service.Profile;
 using WIMS.Application.Validators.Admin;
@@ -81,11 +85,29 @@ builder.Services.AddCors(options =>
 );
 
 builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(x => x.Value?.Errors.Count > 0)
+                .SelectMany(x => x.Value!.Errors.Select(e => e.ErrorMessage))
+                .ToList();
+
+            var response = ApiResponse<object>.Failure(
+                message: "Validation failed.",
+                errors: errors,
+                statusCode: 400
+            );
+
+            return new BadRequestObjectResult(response);
+        };
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
- 
+
 
 //fluent validation
 builder.Services.AddFluentValidationAutoValidation();
@@ -93,11 +115,12 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateUserRequestValidator>
 
 //DI
 builder.Services.AddScoped<ISeeder, Seeder>();
-builder.Services.AddScoped<IInputNormalizer,InputNormalizer>();
+builder.Services.AddScoped<IInputNormalizer, InputNormalizer>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ICodeGeneratorService, CodeGeneratorService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAdminUserManagementService, AdminUserManagementService>();
@@ -125,7 +148,10 @@ builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsql => npgsql.MigrationsAssembly("WIMS.Infrastructure")));
 
-builder.Services.AddAutoMapper(typeof(UserMappingProfile).Assembly);
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddMaps(typeof(UserMappingProfile).Assembly);
+});
 
 //jwt authenticationcd
 builder.Services.AddAuthentication(option =>

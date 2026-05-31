@@ -6,10 +6,6 @@ using WIMS.Infrastructure.Data;
 
 namespace WIMS.Infrastructure.Repository;
 
-// ─────────────────────────────────────────────────────────────────────────
-// Each class inherits GenericRepository<T> — gets ALL generic methods free.
-// Only truly custom queries are implemented here.
-// ─────────────────────────────────────────────────────────────────────────
 
 public class UserRepository : GenericRepository<User>, IUserRepository
 {

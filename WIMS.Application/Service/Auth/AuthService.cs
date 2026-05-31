@@ -6,7 +6,9 @@ using WIMS.Application.DTOs;
 using WIMS.Application.DTOs.Auth;
 using WIMS.Application.Interfaces.Common;
 using WIMS.Application.Interfaces.Repositories;
+using WIMS.Application.Interfaces.Services.Audit;
 using WIMS.Application.Interfaces.Services.Auth;
+using WIMS.Domain.Constant;
 using WIMS.Domain.Entity;
 using WIMS.Domain.Enums;
 
@@ -21,7 +23,9 @@ public class AuthService : IAuthService
     private readonly ICodeGeneratorService _code;
     private readonly IEmailService _emailService;
 
-    public AuthService(IJwtService jwtService, IUserRepository userRepository, IPasswordHasher passwordHasher, IInputNormalizer inputNormalizer, ICodeGeneratorService code, IEmailService emailService)
+    private readonly IAuditService _auditService;
+
+    public AuthService(IJwtService jwtService, IUserRepository userRepository, IPasswordHasher passwordHasher, IInputNormalizer inputNormalizer, ICodeGeneratorService code, IEmailService emailService, IAuditService auditService)
     {
         _jwtService = jwtService;
         _userRepository = userRepository;
@@ -29,6 +33,7 @@ public class AuthService : IAuthService
         _inputNormalizer = inputNormalizer;
         _code = code;
         _emailService = emailService;
+        _auditService = auditService;
     }
 
     public async Task<ApiResponse<GenerateTokenResponse>> Login(LoginRequest request)
@@ -61,11 +66,28 @@ public class AuthService : IAuthService
         {
             await IncreaseFailedLoginAttempts(user);
 
+
             if (user.Status == UserStatus.Locked)
             {
                 var istTime = HelperService.ToIST(user.LockedUntil!.Value);
+
+                await _auditService.LogAsync(
+                    action: AuditActions.AccountLocked,
+                    entityName: "User",
+                    entityId: user.Id.ToString(),
+                    performedBy: user.Id,
+                    newValue: new { user.FailedLoginAttempts, LockedUntil = istTime }
+                );
                 return ApiResponse<GenerateTokenResponse>.Failure($"Your account is locked due to multiple failed login attempts. Please try again after {istTime:dd MMM yyyy, hh:mm tt} IST.", null, 403);
             }
+
+            await _auditService.LogAsync(
+                action: AuditActions.LoginFailed,
+                entityName: "User",
+                entityId: user.Id.ToString(),
+                performedBy: user.Id,
+                newValue: new { user.FailedLoginAttempts }
+            );
 
             return ApiResponse<GenerateTokenResponse>.Failure("Invalid Credentials", null, 400);
         }
@@ -76,7 +98,14 @@ public class AuthService : IAuthService
         user.LastLoginAt = DateTime.UtcNow;
         user.FailedLoginAttempts = 0;
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
+
+        await _auditService.LogAsync(
+            action: AuditActions.Login,
+            entityName: "User",
+            entityId: user.Id.ToString(),
+            performedBy: user.Id
+        );
 
         return ApiResponse<GenerateTokenResponse>.Success(tokenResponse, "Login Successfully", 200);
     }
@@ -94,7 +123,7 @@ public class AuthService : IAuthService
                 user.Status = UserStatus.Active;
                 user.FailedLoginAttempts = 0;
                 user.LockedUntil = null;
-               await _userRepository.UpdateAsync(user);
+                await _userRepository.SaveChangesAsync();
                 return false;
             }
         }
@@ -116,7 +145,7 @@ public class AuthService : IAuthService
             user.LockedUntil = DateTime.UtcNow.AddMinutes(30);
         }
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
     }
 
     public async Task<ApiResponse<GenerateTokenResponse>> RefreshToken(RefreshTokenRequest request)
@@ -135,7 +164,7 @@ public class AuthService : IAuthService
         user.RefreshTokenHash = _passwordHasher.NormalHash(tokenResponse.RefreshToken);
         user.RefreshTokenExpiryTime = tokenResponse.RefreshTokenExpiryTime;
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
         return ApiResponse<GenerateTokenResponse>.Success(tokenResponse, "Request successful.", 200);
     }
@@ -145,7 +174,7 @@ public class AuthService : IAuthService
     {
         request = _inputNormalizer.NormalizeObject(request);
 
-        var user = await _userRepository.GetAsync(x => x.Id == request.UserId);
+        var user = await _userRepository.GetAsync(x => x.Id == request.UserId, useNoTracking: false);
 
         if (user == null)
         {
@@ -164,7 +193,14 @@ public class AuthService : IAuthService
 
         user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
+
+        await _auditService.LogAsync(
+            action: AuditActions.PasswordChanged,
+            entityName: "User",
+            entityId: user.Id.ToString(),
+            performedBy: user.Id
+        );
 
         return ApiResponse<string>.Success("Password changed successfully", "Password changed successfully", 200);
     }
@@ -184,8 +220,14 @@ public class AuthService : IAuthService
         user.RefreshTokenHash = null;
         user.RefreshTokenExpiryTime = null;
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
+        await _auditService.LogAsync(
+            action: AuditActions.Logout,
+            entityName: "User",
+            entityId: user.Id.ToString(),
+            performedBy: user.Id
+        );
         return ApiResponse<string>.Success("Logout Successfully", "Logout Successfully", 200);
     }
 
@@ -217,10 +259,10 @@ public class AuthService : IAuthService
         {
             user.PasswordResetTokenHash = _passwordHasher.NormalHash(token);
             user.PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(30);
-            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
 
             var resetLink =
-                $"http://localhost:4200/reset-password" +
+                $"http://localhost:4200/auth/reset-password" +
                 $"?token={Uri.EscapeDataString(token)}" +
                 $"&email={Uri.EscapeDataString(user.Email)}";
 
@@ -239,6 +281,12 @@ public class AuthService : IAuthService
 
 
             await _emailService.SendEmailAsync(user.Email, "Reset your password", body);
+            await _auditService.LogAsync(
+                action: AuditActions.ForgotPasswordRequested,
+                entityName: "User",
+                entityId: user.Id.ToString(),
+                performedBy: user.Id
+            );
             await _userRepository.CommitTransactionAsync();
             return ApiResponse<string>.Success($"Resent link has been sent to {user.Email}.", statusCode: 200);
         }
@@ -275,7 +323,13 @@ public class AuthService : IAuthService
         user.RefreshTokenHash = null;
         user.RefreshTokenExpiryTime = null;
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
+        await _auditService.LogAsync(
+            action : AuditActions.PasswordReset,
+            entityName : "User",
+            entityId : user.Id.ToString(),
+            performedBy : user.Id
+        );
         return ApiResponse<string>.Success("Password reset successfully. You can now log in.", statusCode: 200);
     }
 
