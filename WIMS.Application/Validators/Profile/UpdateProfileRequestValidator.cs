@@ -14,8 +14,8 @@ public class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequ
             .When(x => !string.IsNullOrWhiteSpace(x.FullName));
 
         RuleFor(x => x.PhoneNumber)
-            .Matches(@"^\+?[0-9\s\-\(\)]{7,20}$")
-            .WithMessage("Phone number format is invalid.")
+            .Matches(@"^(?:\+91[\-\s]?)?[6-9]\d{9}$")
+            .WithMessage("Phone number must be a valid Indian phone number.")
             .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber));
     }
 }

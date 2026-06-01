@@ -108,6 +108,8 @@ public class AdminUserManagementService : IAdminUserManagementService
 
     public async Task<ApiResponse<PagedResult<UserSummaryResponse>>> GetUsers(QueryParameters qp)
     {
+        qp = _inputNormalizer.NormalizeObject(qp);
+        
         var paged = await _userRepository.GetPaginatedAsync(
             qp,
             searchableColumns: ["FullName", "Email"],

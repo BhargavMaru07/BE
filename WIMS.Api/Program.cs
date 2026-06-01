@@ -19,11 +19,13 @@ using WIMS.Application.Interfaces.Services.Admin;
 using WIMS.Application.Interfaces.Services.Audit;
 using WIMS.Application.Interfaces.Services.Auth;
 using WIMS.Application.Interfaces.Services.Profile;
+using WIMS.Application.Interfaces.Services.WarehouseManagement;
 using WIMS.Application.Mappings;
 using WIMS.Application.Service.Admin;
 using WIMS.Application.Service.Audit;
 using WIMS.Application.Service.Auth;
 using WIMS.Application.Service.Profile;
+using WIMS.Application.Service.WarehouseManagement;
 using WIMS.Application.Validators.Admin;
 using WIMS.Infrastructure.Data;
 using WIMS.Infrastructure.Data.Seeder.Implementation;
@@ -114,36 +116,30 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateUserRequestValidator>();
 
 //DI
+//Helper
 builder.Services.AddScoped<ISeeder, Seeder>();
 builder.Services.AddScoped<IInputNormalizer, InputNormalizer>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ICodeGeneratorService, CodeGeneratorService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+
+
+//Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAdminUserManagementService, AdminUserManagementService>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+
+
+//repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
 builder.Services.AddScoped<IZoneRepository, ZoneRepository>();
 builder.Services.AddScoped<IBinRepository, BinRepository>();
-builder.Services.AddScoped<IProductCategoryRepository, ProductCategoryRepository>();
-builder.Services.AddScoped<IUnitsOfMeasureRepository, UnitsOfMeasureRepository>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
-builder.Services.AddScoped<IStockRecordRepository, StockRecordRepository>();
-builder.Services.AddScoped<IStockMovementRepository, StockMovementRepository>();
-builder.Services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
-builder.Services.AddScoped<IPurchaseOrderItemRepository, PurchaseOrderItemRepository>();
-builder.Services.AddScoped<IGoodsReceiptRepository, GoodsReceiptRepository>();
-builder.Services.AddScoped<IGoodsReceiptItemRepository, GoodsReceiptItemRepository>();
-builder.Services.AddScoped<IGoodsDispatchRepository, GoodsDispatchRepository>();
-builder.Services.AddScoped<IGoodsDispatchItemRepository, GoodsDispatchItemRepository>();
-builder.Services.AddScoped<IStockTransferRepository, StockTransferRepository>();
-builder.Services.AddScoped<IStockTransferItemRepository, StockTransferItemRepository>();
-builder.Services.AddScoped<IStockAdjustmentRepository, StockAdjustmentRepository>();
-builder.Services.AddScoped<IReorderAlertRepository, ReorderAlertRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsql => npgsql.MigrationsAssembly("WIMS.Infrastructure")));
