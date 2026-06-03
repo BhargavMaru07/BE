@@ -39,7 +39,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "DesignPatternDemo API",
+        Title = "WIMS API",
         Version = "v1"
     });
 
@@ -131,6 +131,9 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IAdminUserManagementService, AdminUserManagementService>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+builder.Services.AddScoped<IZoneService, ZoneService>();
+builder.Services.AddScoped<ZoneService>();
+builder.Services.AddScoped<IBinService, BinService>();
 
 
 //repositories

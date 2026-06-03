@@ -26,49 +26,37 @@ public class UserRepository : GenericRepository<User>, IUserRepository
 public class WarehouseRepository : GenericRepository<Warehouse>, IWarehouseRepository
 {
     public WarehouseRepository(AppDbContext db) : base(db) { }
-
 }
 
 public class ZoneRepository : GenericRepository<Zone>, IZoneRepository
 {
     public ZoneRepository(AppDbContext db) : base(db) { }
 
-    public async Task<List<Zone>> GetByWarehouseAsync(int warehouseId)
-        => await _dbSet
-            .AsNoTracking()
-            .Where(z => z.WarehouseId == warehouseId)
-            .OrderBy(z => z.Code)
-            .ToListAsync();
-
-    public async Task<bool> IsCodeTakenInWarehouseAsync(string code, int warehouseId, int? excludeId = null)
-        => await _dbSet.AnyAsync(z =>
-            z.Code == code &&
-            z.WarehouseId == warehouseId &&
-            (excludeId == null || z.Id != excludeId));
+    public async Task<List<Zone>> GetActiveZoneByWarehouseAsync(int warehouseId)
+            => await _dbSet
+                .AsNoTracking()
+                .Where(z => z.WarehouseId == warehouseId && z.Status == EntityStatus.Active)    
+                .OrderBy(z => z.Code)
+                .ToListAsync();
 }
 
 public class BinRepository : GenericRepository<Bin>, IBinRepository
 {
     public BinRepository(AppDbContext db) : base(db) { }
 
-    public async Task<List<Bin>> GetByZoneAsync(int zoneId)
-        => await _dbSet
-            .AsNoTracking()
-            .Where(b => b.ZoneId == zoneId)
-            .OrderBy(b => b.Code)
-            .ToListAsync();
+    public async Task<List<Bin>> GetActiveBinByZoneAsync(int zoneId)
+         => await _dbSet
+             .AsNoTracking()
+             .Where(b => b.ZoneId == zoneId && b.Status == EntityStatus.Active)
+             .OrderBy(b => b.Code)
+             .ToListAsync();
 
-    public async Task<int> CountBinsInZoneAsync(int zoneId)
-        => await _dbSet.CountAsync(b => b.ZoneId == zoneId);
+    public async Task<bool> HasStockAsync(int binId)
+        => await _db.Set<StockRecord>()
+            .AnyAsync(sr => sr.BinId == binId && sr.Quantity > 0);
 }
 public class AuditLogRepository : GenericRepository<AuditLog>, IAuditLogRepository
 {
     public AuditLogRepository(AppDbContext db) : base(db) { }
-
-    public async Task<List<AuditLog>> GetByEntityAsync(string entityName, int entityId)
-        => await _dbSet
-            .AsNoTracking()
-            .Where(a => a.EntityName == entityName && a.EntityId == entityId.ToString())
-            .OrderByDescending(a => a.PerformedAt)
-            .ToListAsync();
+    
 }

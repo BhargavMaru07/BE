@@ -75,7 +75,7 @@ public class BinConfiguration : IEntityTypeConfiguration<Bin>
         b.Property(x => x.MaxCapacity).HasPrecision(12, 2);
 
         b.HasOne(x => x.Zone)
-            .WithMany()
+            .WithMany(z => z.Bins)
             .HasForeignKey(x => x.ZoneId)
             .IsRequired(true)
             .OnDelete(DeleteBehavior.Restrict);

@@ -11,6 +11,7 @@ public class WarehouseCreateRequestValidator : AbstractValidator<WarehouseCreate
     {
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Warehouse name is required.")
+            .Matches(@"^(?=.*[A-Za-z])[A-Za-z0-9\s\-_]+$").WithMessage("Warehouse name allows letters, numbers, spaces, hyphens, and underscores (must include a letter).")
             .MinimumLength(2).WithMessage("Warehouse name must be at least 2 characters long.")
             .MaximumLength(100).WithMessage("Warehouse name must not exceed 100 characters.");
 
@@ -20,10 +21,12 @@ public class WarehouseCreateRequestValidator : AbstractValidator<WarehouseCreate
 
         RuleFor(x => x.City)
             .NotEmpty().WithMessage("Warehouse city is required.")
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage("city name can only contain letters and spaces.")
             .MaximumLength(50).WithMessage("Warehouse city must not exceed 50 characters.");
 
         RuleFor(x => x.ContactPerson)
             .NotEmpty().WithMessage("Contact person is required.")
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage("ContactPerson name can only contain letters and spaces.")
             .MinimumLength(2).WithMessage("Contact person name must be at least 2 characters long.")
             .MaximumLength(100).WithMessage("Contact person name must not exceed 100 characters.");
 
@@ -41,6 +44,7 @@ public class WarehouseUpdateRequestValidator : AbstractValidator<WarehouseUpdate
     public WarehouseUpdateRequestValidator()
     {
         RuleFor(x => x.Name)
+            .Matches(@"^(?=.*[A-Za-z])[A-Za-z0-9\s\-_]+$").WithMessage("Warehouse name allows letters, numbers, spaces, hyphens, and underscores (must include a letter).")
             .MinimumLength(2).WithMessage("Warehouse name must be at least 2 characters long.")
             .MaximumLength(100).WithMessage("Warehouse name must not exceed 100 characters.")
             .When(x => !string.IsNullOrWhiteSpace(x.Name));
@@ -50,10 +54,12 @@ public class WarehouseUpdateRequestValidator : AbstractValidator<WarehouseUpdate
             .When(x => !string.IsNullOrWhiteSpace(x.Address));
 
         RuleFor(x => x.City)
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage("city name can only contain letters and spaces.")
             .MaximumLength(50).WithMessage("Warehouse city must not exceed 50 characters.")
             .When(x => !string.IsNullOrWhiteSpace(x.City));
             
         RuleFor(x => x.ContactPerson)
+            .Matches(@"^[a-zA-Z\s]+$").WithMessage("ContactPerson name can only contain letters and spaces.")
             .MinimumLength(2).WithMessage("Contact person name must be at least 2 characters long.")
             .MaximumLength(100).WithMessage("Contact person name must not exceed 100 characters.")
             .When(x => !string.IsNullOrWhiteSpace(x.ContactPerson));

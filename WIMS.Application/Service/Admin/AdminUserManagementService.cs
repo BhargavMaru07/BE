@@ -163,6 +163,39 @@ public class AdminUserManagementService : IAdminUserManagementService
             return ApiResponse<UserResponseDto>.Failure(
                 $"User is already {request.Status}.", statusCode: 400);
 
+        
+        //if user is manager then check at least one active manager exists before inactivating per warehouse
+        if (user.Role == UserRole.WarehouseManager && request.Status == UserStatus.Inactive)
+        {
+            var activeManagersCount = await _userRepository.CountAsync(
+                u => u.Id != userId &&
+                u.Role == UserRole.WarehouseManager &&
+                u.WarehouseId == user.WarehouseId &&
+                u.Status == UserStatus.Active);
+
+            if (activeManagersCount == 0)
+            {
+                return ApiResponse<UserResponseDto>.Failure(
+                    "Cannot inactivate this user. Each warehouse must have at least one active Warehouse Manager.", statusCode: 400);
+            }
+        }
+
+        //if user is stock keeper then check at least one active stock keeper exists before inactivating per warehouse  
+        if(user.Role == UserRole.StockKeeper && request.Status == UserStatus.Inactive)
+        {
+            var activeStockKeepersCount = await _userRepository.CountAsync(
+                u => u.Id != userId &&
+                u.Role == UserRole.StockKeeper &&
+                u.WarehouseId == user.WarehouseId &&
+                u.Status == UserStatus.Active);
+
+            if (activeStockKeepersCount == 0)
+            {
+                return ApiResponse<UserResponseDto>.Failure(
+                    "Cannot inactivate this user. Each warehouse must have at least one active Stock Keeper.", statusCode: 400);
+            }
+        }
+        
         user.Status = request.Status;
         user.ModifiedAt = DateTime.UtcNow;
         user.ModifiedBy = modifiedByUserId;
@@ -174,7 +207,7 @@ public class AdminUserManagementService : IAdminUserManagementService
             user.LockedUntil = null;
         }
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
         UserResponseDto response = _mapper.Map<UserResponseDto>(user);
 
@@ -208,13 +241,11 @@ public class AdminUserManagementService : IAdminUserManagementService
         user.ModifiedAt = DateTime.UtcNow;
         user.ModifiedBy = modifiedByUserId;
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
-        var updated = await _userRepository.GetAsync(
-            u => u.Id == userId,
-            includes: q => q.Include(u => u.Warehouse));
+        var updatedUser = await _userRepository.GetAsync(u => u.Id == user.Id , includes: q => q.Include(x => x.Warehouse));
 
-        UserResponseDto response = _mapper.Map<UserResponseDto>(updated);
+        UserResponseDto response = _mapper.Map<UserResponseDto>(updatedUser);
 
         return ApiResponse<UserResponseDto>.Success(
             response,
@@ -246,13 +277,11 @@ public class AdminUserManagementService : IAdminUserManagementService
         user.ModifiedAt = DateTime.UtcNow;
         user.ModifiedBy = modifiedByUserId;
 
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.SaveChangesAsync();
 
-        var updated = await _userRepository.GetAsync(
-            u => u.Id == userId,
-            includes: q => q.Include(u => u.Warehouse));
+        var updatedUser = await _userRepository.GetAsync(u => u.Id == user.Id , includes: q => q.Include(x => x.Warehouse));
 
-        UserResponseDto response = _mapper.Map<UserResponseDto>(updated);
+        UserResponseDto response = _mapper.Map<UserResponseDto>(updatedUser);
 
         return ApiResponse<UserResponseDto>.Success(response, "Warehouse assignment updated successfully.");
     }
@@ -278,5 +307,4 @@ public class AdminUserManagementService : IAdminUserManagementService
 
         return null;
     }
-
 }

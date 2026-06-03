@@ -140,12 +140,10 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
                 query = query.Where(Expression.Lambda<Func<T, bool>>(combined, param));
         }
 
-        // ── 4. Count BEFORE pagination ────────────────────────────
+        //Total Count 
         var totalCount = await query.CountAsync();
 
-        // ── 5. Sorting ────────────────────────────────────────────
-        // If sortBy is given and matches a property name, sort by it.
-        // Otherwise fall back to CreatedAt DESC (or Id DESC if no CreatedAt).
+        //Sorting 
         if (!string.IsNullOrWhiteSpace(qp.SortBy))
         {
             var prop = typeof(T).GetProperty(
@@ -155,7 +153,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             {
                 var param = Expression.Parameter(typeof(T), "x");
                 var keySelector = Expression.Lambda(Expression.Property(param, prop), param);
-                var methodName = qp.SortDesc ? "OrderByDescending" : "OrderBy";
+                var methodName = qp.SortDirection == "desc" ? "OrderByDescending" : "OrderBy";
 
                 var ordered = typeof(Queryable)
                     .GetMethods()
@@ -183,7 +181,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             }
         }
 
-        // ── 6. Pagination ─────────────────────────────────────────
+        //Pagination
         var items = await query
             .Skip((qp.PageNumber - 1) * qp.PageSize)
             .Take(qp.PageSize)
