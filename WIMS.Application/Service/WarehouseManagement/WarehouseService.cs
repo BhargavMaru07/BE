@@ -15,18 +15,22 @@ namespace WIMS.Application.Service.WarehouseManagement;
 public class WarehouseService : IWarehouseService
 {
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IZoneRepository _zoneRepository;
+    private readonly IBinRepository _binRepository;
     private readonly IMapper _mapper;
     private readonly IInputNormalizer _inputNormalizer;
     private readonly ICodeGeneratorService _codeGeneratorService;
     private readonly IAuditService _auditService;
 
-    public WarehouseService(IWarehouseRepository warehouseRepository, IMapper mapper, IInputNormalizer inputNormalizer, ICodeGeneratorService codeGeneratorService, IAuditService auditService)
+    public WarehouseService(IWarehouseRepository warehouseRepository, IMapper mapper, IInputNormalizer inputNormalizer, ICodeGeneratorService codeGeneratorService, IAuditService auditService, IZoneRepository zoneRepository, IBinRepository binRepository)
     {
         _warehouseRepository = warehouseRepository;
         _mapper = mapper;
         _inputNormalizer = inputNormalizer;
         _codeGeneratorService = codeGeneratorService;
         _auditService = auditService;
+        _zoneRepository = zoneRepository;
+        _binRepository = binRepository;
     }
 
     public async Task<ApiResponse<WarehouseResponse>> CreateWarehouse(WarehouseCreateRequest request, int createdByUserId)
@@ -153,13 +157,13 @@ public class WarehouseService : IWarehouseService
         }
 
         //any zone is active then we can not inactive warehouse
-        if (request.Status == EntityStatus.Inactive && warehouse.Zones.Any(z => z.Status == EntityStatus.Active))
+        if (request.Status == EntityStatus.Inactive && warehouse.Zones.Any(z => z.Status == EntityStatus.Active) && await _warehouseRepository.HasStockAsync(warehouse.Id))
         {
-            return ApiResponse<string>.Failure("Cannot inactivate warehouse with active zones. Please inactivate all zones first.", statusCode: 400);
+            return ApiResponse<string>.Failure("Cannot inactivate warehouse with active zones and Stock. Please inactivate all zones first.", statusCode: 400);
         }
 
         //if all zones are inactive then we can not active warehouse
-        if (request.Status == EntityStatus.Active && warehouse.Zones.Count > 0 && warehouse.Zones.All(z => z.Status == EntityStatus.Inactive))
+        if (request.Status == EntityStatus.Active && warehouse.Zones.Count > 0 && warehouse.Zones.All(z => z.Status == EntityStatus.Inactive) && await _warehouseRepository.HasStockAsync(warehouse.Id))
         {
             return ApiResponse<string>.Failure(
                 "Cannot activate warehouse with all zones inactive. Please activate at least one zone first.",
@@ -185,4 +189,46 @@ public class WarehouseService : IWarehouseService
 
         return ApiResponse<string>.Success($"Warehouse {warehouse.Status} successfully.", statusCode: 200);
     }
+
+    public async Task<ApiResponse<string>> DeleteWarehouse(int id, int deletedBy)
+    {
+        var warehouse = await _warehouseRepository.GetAsync(w => w.Id == id, useNoTracking: false, includes: q => q.Include(z => z.Zones).ThenInclude(b => b.Bins));
+
+        if (warehouse is null)
+            return ApiResponse<string>.Failure("Warehouse not found.", statusCode: 404);
+
+        if (await _warehouseRepository.HasStockAsync(id))
+            return ApiResponse<string>.Failure("Warehouse Has Stock.Please Remove Stock For Delete");
+
+        await _warehouseRepository.BeginTransactionAsync();
+
+        try
+        {
+            foreach (var zone in warehouse.Zones.ToList())
+            {
+                foreach (var bin in zone.Bins.ToList())
+                {
+                    await _binRepository.SoftDeleteAsync(bin, deletedBy);
+                }
+                await _zoneRepository.SoftDeleteAsync(zone, deletedBy);
+            }
+
+            await _warehouseRepository.SoftDeleteAsync(warehouse, deletedBy);
+
+            await _warehouseRepository.CommitTransactionAsync();
+            return ApiResponse<string>.Success("Warehouse and it's related Zone & Bins are Deleted ");
+
+        }
+        catch (Exception)
+        {
+            await _warehouseRepository.RollbackTransactionAsync();
+            return ApiResponse<string>.Failure("an error occure while deleting warehouse");
+        }
+
+
+    }
+
+
+
+
 }

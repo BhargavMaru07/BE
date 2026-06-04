@@ -50,6 +50,17 @@ public class ZoneController : ControllerBase
         return Ok(response);
     }
 
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteZone(int id)
+    {
+        var response = await _zoneService.DeleteZone(id,GetCurrentUserId());
+
+        if (!response.IsSuccess)
+            return NotFound(response);
+
+        return Ok(response);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetZones([FromQuery] QueryParameters qp)
     {

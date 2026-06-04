@@ -134,7 +134,6 @@ public class BinService : IBinService
             includes: q => q.Include(b => b.Zone));
 
         var filtered = allBins
-            .Where(b => b.Status == EntityStatus.Active)
             .Where(b => zoneId == null || b.ZoneId == zoneId)
             .Where(b => warehouseId == null || b.Zone?.WarehouseId == warehouseId)
             .ToList();

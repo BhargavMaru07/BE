@@ -26,6 +26,9 @@ public class UserRepository : GenericRepository<User>, IUserRepository
 public class WarehouseRepository : GenericRepository<Warehouse>, IWarehouseRepository
 {
     public WarehouseRepository(AppDbContext db) : base(db) { }
+
+    public async Task<bool> HasStockAsync(int warehouseId)
+        => await _db.Set<StockRecord>().AnyAsync(sr => sr.WarehouseId == warehouseId && sr.Quantity > 0);
 }
 
 public class ZoneRepository : GenericRepository<Zone>, IZoneRepository

@@ -11,4 +11,5 @@ public interface IZoneService
     Task<ApiResponse<List<ZoneDropdownResponse>>> GetZonesDropdown(int? warehouseId = null);
     Task<ApiResponse<ZoneResponse>> UpdateZone(int id, ZoneUpdateRequest request, int modifiedByUserId);
     Task<ApiResponse<string>> UpdateZoneStatus(int id, ZoneStatusUpdateRequest request, int modifiedByUserId);
+    Task<ApiResponse<string>> DeleteZone(int id, int deletedBy);
 }

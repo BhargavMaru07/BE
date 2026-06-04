@@ -10,4 +10,5 @@ public interface IWarehouseService
     Task<ApiResponse<PagedResult<WarehouseResponse>>> GetWarehouses(QueryParameters qp);
     Task<ApiResponse<WarehouseResponse>> UpdateWarehouse(int id, WarehouseUpdateRequest request, int modifiedByUserId);
     Task<ApiResponse<string>> UpdateWarehouseStatus(int id,WarehouseStatusUpdateRequest request, int modifiedByUserId);
+    Task<ApiResponse<string>> DeleteWarehouse(int id, int deletedBy);
 }

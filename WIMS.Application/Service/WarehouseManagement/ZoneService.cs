@@ -16,6 +16,7 @@ public class ZoneService : IZoneService
 {
     private readonly IZoneRepository _zoneRepository;
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IBinRepository _binRepository;
     private readonly IMapper _mapper;
     private readonly IInputNormalizer _inputNormalizer;
     private readonly ICodeGeneratorService _codeGeneratorService;
@@ -27,7 +28,9 @@ public class ZoneService : IZoneService
         IMapper mapper,
         IInputNormalizer inputNormalizer,
         ICodeGeneratorService codeGeneratorService,
-        IAuditService auditService)
+        IAuditService auditService,
+        IBinRepository binRepository
+        )
     {
         _zoneRepository = zoneRepository;
         _warehouseRepository = warehouseRepository;
@@ -35,6 +38,7 @@ public class ZoneService : IZoneService
         _inputNormalizer = inputNormalizer;
         _codeGeneratorService = codeGeneratorService;
         _auditService = auditService;
+        _binRepository = binRepository;
     }
 
     public async Task<ApiResponse<ZoneResponse>> CreateZone(ZoneCreateRequest request, int createdByUserId)
@@ -127,18 +131,10 @@ public class ZoneService : IZoneService
 
     public async Task<ApiResponse<List<ZoneDropdownResponse>>> GetZonesDropdown(int? warehouseId = null)
     {
-        var zones = await _zoneRepository.GetAllAsync(
-            orderBy: q => q.OrderBy(z => z.Name),
-            includes: q => q.Where(z => z.Status == EntityStatus.Active)
-                            .Where(z => warehouseId == null || z.WarehouseId == warehouseId)
-                            .OrderBy(z => z.Name) as IOrderedQueryable<Zone>);
-
-        // GetAllAsync orderBy overrides the includes chain — use a direct query instead
         var allZones = await _zoneRepository.GetAllAsync(
             orderBy: q => q.OrderBy(z => z.Name));
 
         var filtered = allZones
-            .Where(z => z.Status == EntityStatus.Active)
             .Where(z => warehouseId == null || z.WarehouseId == warehouseId)
             .ToList();
 
@@ -249,7 +245,7 @@ public class ZoneService : IZoneService
 
 
             //if first zone is activating then we need to active warehouse.
-            if(request.Status == EntityStatus.Active && await isFirstZoneWillActiveInWarehouse(zone.WarehouseId))
+            if (request.Status == EntityStatus.Active && await isFirstZoneWillActiveInWarehouse(zone.WarehouseId))
             {
                 zone.Status = request.Status;
                 zone.ModifiedBy = modifiedByUserId;
@@ -338,5 +334,40 @@ public class ZoneService : IZoneService
           newValue: warehouse.Status
       );
         return ApiResponse<string>.Success($"Warehouse {warehouse.Status} successfully.", statusCode: 200);
+    }
+
+    public async Task<ApiResponse<string>> DeleteZone(int id, int deletedBy)
+    {
+        var zone = await _zoneRepository.GetAsync(z => z.Id == id, useNoTracking: false, includes: q => q.Include(b => b.Bins));
+
+        if (zone is null)
+            return ApiResponse<string>.Failure("Zone not found.", statusCode: 404);
+
+        var allBins = zone.Bins.ToList();
+
+        foreach (var bin in allBins)
+        {
+            if (await _binRepository.HasStockAsync(bin.Id))
+                return ApiResponse<string>.Failure("Cannot delete a zone that has bins with stock. Please remove stock from all bins first.", statusCode: 400);
+        }
+
+        await _zoneRepository.BeginTransactionAsync();
+
+        try
+        {
+            foreach(var bin in allBins){
+                await _binRepository.SoftDeleteAsync(bin,deletedBy);
+            }
+
+            await _zoneRepository.SoftDeleteAsync(zone,deletedBy);
+            await _zoneRepository.CommitTransactionAsync();
+            return ApiResponse<string>.Success("Zone and it's related Bins are deleted ");
+
+        }
+        catch (Exception)
+        {
+            await _zoneRepository.RollbackTransactionAsync();
+            return ApiResponse<string>.Failure("an error occure while deleting Zone");
+        }
     }
 }

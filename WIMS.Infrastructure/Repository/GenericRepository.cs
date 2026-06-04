@@ -78,8 +78,26 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             }
             else if (prop.PropertyType == typeof(int))
             {
-                if (int.TryParse(filter.Value, out var intVal))
-                    condition = Expression.Equal(propExpr, Expression.Constant(intVal));
+                var values = filter.Value
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(v => v.Trim())
+                    .ToArray();
+
+                if (values.Length > 1)
+                {
+                    var ids = values.Select(int.Parse).ToList();
+
+                    condition = Expression.Call(
+                        Expression.Constant(ids),
+                        typeof(List<int>).GetMethod(nameof(List<int>.Contains), new[] { typeof(int) })!,
+                        propExpr);
+                }
+                else if (int.TryParse(filter.Value, out var intVal))
+                {
+                    condition = Expression.Equal(
+                        propExpr,
+                        Expression.Constant(intVal));
+                }
             }
             else if (prop.PropertyType == typeof(int?))
             {
@@ -227,6 +245,20 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
         _dbSet.Remove(entity);
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> SoftDeleteAsync(T entity, int deletedBy)
+    {
+        if (entity is ISoftDelete softDeletable)
+        {
+            softDeletable.IsDeleted = true;
+            softDeletable.DeletedBy = deletedBy;
+            softDeletable.DeletedOn = DateTime.UtcNow;
+            _db.Update(entity);
+            await _db.SaveChangesAsync();
+            return true;
+        }
+        return false;
     }
 
     public async Task<bool> SaveChangesAsync()

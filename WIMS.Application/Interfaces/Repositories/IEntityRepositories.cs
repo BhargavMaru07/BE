@@ -11,6 +11,7 @@ public interface IUserRepository : IGenericRepository<User>
 
 public interface IWarehouseRepository : IGenericRepository<Warehouse>
 {
+    Task<bool> HasStockAsync(int warehouseId);
 }
 
 public interface IZoneRepository : IGenericRepository<Zone>

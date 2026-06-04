@@ -50,6 +50,19 @@ public class WarehouseController : ControllerBase
         return Ok(response);
     }
 
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteWarehouse(int id)
+    {
+        var response = await _warehouseService.DeleteWarehouse(id,GetCurrentUserId());
+
+        if (!response.IsSuccess)
+        {
+            return NotFound(response);
+        }
+
+        return Ok(response);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetWarehouses([FromQuery] QueryParameters qp)
     {
