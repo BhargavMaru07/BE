@@ -78,8 +78,26 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             }
             else if (prop.PropertyType == typeof(int))
             {
-                if (int.TryParse(filter.Value, out var intVal))
-                    condition = Expression.Equal(propExpr, Expression.Constant(intVal));
+                var values = filter.Value
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(v => v.Trim())
+                    .ToArray();
+
+                if (values.Length > 1)
+                {
+                    var ids = values.Select(int.Parse).ToList();
+
+                    condition = Expression.Call(
+                        Expression.Constant(ids),
+                        typeof(List<int>).GetMethod(nameof(List<int>.Contains), new[] { typeof(int) })!,
+                        propExpr);
+                }
+                else if (int.TryParse(filter.Value, out var intVal))
+                {
+                    condition = Expression.Equal(
+                        propExpr,
+                        Expression.Constant(intVal));
+                }
             }
             else if (prop.PropertyType == typeof(int?))
             {
@@ -140,12 +158,10 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
                 query = query.Where(Expression.Lambda<Func<T, bool>>(combined, param));
         }
 
-        // ── 4. Count BEFORE pagination ────────────────────────────
+        //Total Count 
         var totalCount = await query.CountAsync();
 
-        // ── 5. Sorting ────────────────────────────────────────────
-        // If sortBy is given and matches a property name, sort by it.
-        // Otherwise fall back to CreatedAt DESC (or Id DESC if no CreatedAt).
+        //Sorting 
         if (!string.IsNullOrWhiteSpace(qp.SortBy))
         {
             var prop = typeof(T).GetProperty(
@@ -155,7 +171,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             {
                 var param = Expression.Parameter(typeof(T), "x");
                 var keySelector = Expression.Lambda(Expression.Property(param, prop), param);
-                var methodName = qp.SortDesc ? "OrderByDescending" : "OrderBy";
+                var methodName = qp.SortDirection == "desc" ? "OrderByDescending" : "OrderBy";
 
                 var ordered = typeof(Queryable)
                     .GetMethods()
@@ -183,7 +199,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             }
         }
 
-        // ── 6. Pagination ─────────────────────────────────────────
+        //Pagination
         var items = await query
             .Skip((qp.PageNumber - 1) * qp.PageSize)
             .Take(qp.PageSize)
@@ -229,6 +245,20 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
         _dbSet.Remove(entity);
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> SoftDeleteAsync(T entity, int deletedBy)
+    {
+        if (entity is ISoftDelete softDeletable)
+        {
+            softDeletable.IsDeleted = true;
+            softDeletable.DeletedBy = deletedBy;
+            softDeletable.DeletedOn = DateTime.UtcNow;
+            _db.Update(entity);
+            await _db.SaveChangesAsync();
+            return true;
+        }
+        return false;
     }
 
     public async Task<bool> SaveChangesAsync()

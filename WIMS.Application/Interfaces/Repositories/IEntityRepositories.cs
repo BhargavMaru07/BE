@@ -11,20 +11,20 @@ public interface IUserRepository : IGenericRepository<User>
 
 public interface IWarehouseRepository : IGenericRepository<Warehouse>
 {
+    Task<bool> HasStockAsync(int warehouseId);
 }
 
 public interface IZoneRepository : IGenericRepository<Zone>
 {
-    Task<List<Zone>> GetByWarehouseAsync(int warehouseId);
+    Task<List<Zone>> GetActiveZoneByWarehouseAsync(int warehouseId);
 }
 
 public interface IBinRepository : IGenericRepository<Bin>
 {
-    Task<List<Bin>> GetByZoneAsync(int zoneId);
-    Task<int> CountBinsInZoneAsync(int zoneId);
+    Task<List<Bin>> GetActiveBinByZoneAsync(int zoneId);
+    Task<bool> HasStockAsync(int binId);
 }
 
 public interface IAuditLogRepository : IGenericRepository<AuditLog>
 {
-    Task<List<AuditLog>> GetByEntityAsync(string entityName, int entityId);
 }

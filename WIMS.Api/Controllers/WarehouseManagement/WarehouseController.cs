@@ -37,10 +37,23 @@ public class WarehouseController : ControllerBase
     }
 
 
-    [HttpGet("{code}")]
-    public async Task<IActionResult> GetWarehouseByCode(string code)
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetWarehouseById(int id)
     {
-        var response = await _warehouseService.GetWarehouseByCode(code);
+        var response = await _warehouseService.GetWarehouseById(id);
+
+        if (!response.IsSuccess)
+        {
+            return NotFound(response);
+        }
+
+        return Ok(response);
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteWarehouse(int id)
+    {
+        var response = await _warehouseService.DeleteWarehouse(id,GetCurrentUserId());
 
         if (!response.IsSuccess)
         {
@@ -57,10 +70,10 @@ public class WarehouseController : ControllerBase
         return Ok(response);
     }
 
-    [HttpPatch("{code}")]
-    public async Task<IActionResult> UpdateWarehouse(string code, WarehouseUpdateRequest request)
+    [HttpPatch("{id:int}")]
+    public async Task<IActionResult> UpdateWarehouse(int id, WarehouseUpdateRequest request)
     {
-        var response = await _warehouseService.UpdateWarehouse(code, request, GetCurrentUserId());
+        var response = await _warehouseService.UpdateWarehouse(id, request, GetCurrentUserId());
 
         if (!response.IsSuccess)
         {
@@ -72,10 +85,10 @@ public class WarehouseController : ControllerBase
         return Ok(response);
     }
 
-    [HttpPatch("{code}/status")]
-    public async Task<IActionResult> UpdateWarehouseStatus(string code, WarehouseStatusUpdateRequest request)
+    [HttpPatch("{id:int}/status")]
+    public async Task<IActionResult> UpdateWarehouseStatus(int id, WarehouseStatusUpdateRequest request)
     {
-        var response = await _warehouseService.UpdateWarehouseStatus(code, request, GetCurrentUserId());
+        var response = await _warehouseService.UpdateWarehouseStatus(id, request, GetCurrentUserId());
 
         if (!response.IsSuccess)
         {
