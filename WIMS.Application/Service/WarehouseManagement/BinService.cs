@@ -110,6 +110,24 @@ public class BinService : IBinService
         return ApiResponse<BinResponse>.Success(response, statusCode: 200);
     }
 
+    public async Task<ApiResponse<string>> DeleteBin(int id, int deletedBy)
+    {
+        var bin = await _binRepository.GetAsync(b => b.Id == id, useNoTracking: false);
+
+        if (bin is null)
+        {
+            return ApiResponse<string>.Failure("Bin not found.", statusCode: 404);
+        }
+
+        if (await _binRepository.HasStockAsync(bin.Id))
+        {
+            return ApiResponse<string>.Failure("Cannot delete a Bin that has stock. Please remove stock  first.");
+        }
+
+        await _binRepository.SoftDeleteAsync(bin,deletedBy);
+        return ApiResponse<string>.Success("Bin Deleted Successfully.");
+    }
+
     public async Task<ApiResponse<PagedResult<BinResponse>>> GetBins(QueryParameters qp)
     {
         qp = _inputNormalizer.NormalizeObject(qp);
@@ -282,7 +300,7 @@ public class BinService : IBinService
         catch (Exception ex)
         {
             Console.WriteLine("---------------------------------");
-            Console.WriteLine(ex); 
+            Console.WriteLine(ex);
             await _binRepository.RollbackTransactionAsync();
             return ApiResponse<string>.Failure("An error occurred while updating the bin status.", statusCode: 500);
         }
@@ -322,8 +340,8 @@ public class BinService : IBinService
             performedBy: modifiedByUserId,
             previousValue: previousStatus,
             newValue: zone.Status);
-        var response = await _zoneService.UpdateWarehouseStatus(zone.WarehouseId, new WarehouseStatusUpdateRequest{Status = request.Status}, modifiedByUserId);
-        if(!response.IsSuccess)
+        var response = await _zoneService.UpdateWarehouseStatus(zone.WarehouseId, new WarehouseStatusUpdateRequest { Status = request.Status }, modifiedByUserId);
+        if (!response.IsSuccess)
         {
             return ApiResponse<string>.Failure("An error occurred while updating the warehouse status.", statusCode: 500);
         }
