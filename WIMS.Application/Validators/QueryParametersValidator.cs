@@ -13,7 +13,8 @@ public class QueryParametersValidator : AbstractValidator<QueryParameters>
         "FullName",
         "CreatedAt",
         "UpdatedAt",
-        "Code"
+        "Code",
+        "MaxCapacity"
     };
 
     public QueryParametersValidator()

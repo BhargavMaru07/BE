@@ -49,6 +49,17 @@ public class BinController : ControllerBase
         return Ok(response);
     }
 
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteBin(int id)
+    {
+        var response = await _binService.DeleteBin(id,GetCurrentUserId());
+
+        if (!response.IsSuccess)
+            return NotFound(response);
+
+        return Ok(response);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetBins([FromQuery] QueryParameters qp)
     {
