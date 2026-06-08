@@ -112,9 +112,9 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             else if (prop.PropertyType.IsEnum)
             {
                 var values = filter.Value
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(v => v.Trim())
-                    .ToList();
+                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                 .Select(v => v.Trim())
+                 .ToList();
 
                 if (values.Count > 1)
                 {
@@ -127,7 +127,6 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
 
                     if (enumList.Count > 0)
                     {
-                        // build: new[] { Role.Admin, Role.Manager }.Contains(x.Role)
                         var typedArray = Array.CreateInstance(prop.PropertyType, enumList.Count);
                         for (int i = 0; i < enumList.Count; i++)
                             typedArray.SetValue(enumList[i], i);
@@ -147,7 +146,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
                 {
                     try
                     {
-                        var enumVal = Enum.Parse(prop.PropertyType, filter.Value.Trim(), ignoreCase: true);
+                        var enumVal = Enum.Parse(prop.PropertyType, filter.Value, ignoreCase: true);
                         condition = Expression.Equal(propExpr, Expression.Constant(enumVal, prop.PropertyType));
                     }
                     catch { }

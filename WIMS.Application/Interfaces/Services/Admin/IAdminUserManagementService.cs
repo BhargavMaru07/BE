@@ -11,4 +11,5 @@ public interface IAdminUserManagementService
     Task<ApiResponse<UserResponseDto>> UpdateUserStatus(int userId, UpdateUserStatusRequest request, int modifiedByUserId);
     Task<ApiResponse<UserResponseDto>> UpdateUserRole(int userId, UpdateUserRoleRequest request, int modifiedByUserId);
     Task<ApiResponse<UserResponseDto>> UpdateUserWarehouse(int userId, UpdateUserWarehouseRequest request, int modifiedByUserId);
+    Task<ApiResponse<string>> Deleteuser(int userId, int deletedByUserId);
 }
