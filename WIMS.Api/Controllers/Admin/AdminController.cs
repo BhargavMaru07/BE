@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Org.BouncyCastle.Ocsp;
 using WIMS.Application.DTOs;
 using WIMS.Application.DTOs.Admin;
 using WIMS.Application.Interfaces.Repositories;
@@ -55,6 +56,31 @@ public class AdminController : ControllerBase
         return response.IsSuccess
             ? Ok(response)
             : NotFound(response);
+    }
+
+    [HttpDelete("users/{id:int}")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(ApiResponse<UserResponseDto>.Failure("Invalid user ID.", statusCode: 400));
+        }
+
+        var response = await _adminUserManagementService.Deleteuser(id,GetCurrentUserId());
+
+       if(response.IsSuccess == false)
+       {
+           if (response.StatusCode == 404)
+           {
+               return NotFound(response);
+           }
+           else
+           {
+               return BadRequest(response);
+           }
+       }
+       
+       return Ok(response);
     }
 
     [HttpPatch("users/{id:int}/status")]
