@@ -232,12 +232,34 @@ public class AdminUserManagementService : IAdminUserManagementService
         if (user.Status == UserStatus.Inactive)
             return ApiResponse<UserResponseDto>.Failure("Cannot change role of an inactive user. Activate the user first.", statusCode: 400);
 
-        var warehouseValidation = await ValidateWarehouseForRole(request.Role, request.WarehouseId);
-        if (warehouseValidation is not null)
-            return warehouseValidation;
+        if (user.Role == request.Role)
+            return ApiResponse<UserResponseDto>.Failure($"User is already {request.Role}.",statusCode: 400);
+
+        // var warehouseValidation = await ValidateWarehouseForRole(request.Role, request.WarehouseId);
+        // if (warehouseValidation is not null)
+        //     return warehouseValidation;
+
+        if (_rolesWithoutWarehouse.Contains(user.Role) && _rolesRequiringWarehouse.Contains(request.Role))
+        {
+            if (!request.WarehouseId.HasValue)
+                return ApiResponse<UserResponseDto>.Failure(
+                    $"{request.Role} must be assigned to a warehouse.", statusCode: 400);
+
+            var warehouseExists = await _warehouseRepo.ExistsAsync(
+                w => w.Id == request.WarehouseId && w.Status == EntityStatus.Active);
+
+            if (!warehouseExists)
+                return ApiResponse<UserResponseDto>.Failure(
+                    "Warehouse not found or is inactive.", statusCode: 400);
+
+            user.WarehouseId = request.WarehouseId;
+        }
+        else if (_rolesRequiringWarehouse.Contains(user.Role) && _rolesWithoutWarehouse.Contains(request.Role))
+        {
+            user.WarehouseId = null;
+        }
 
         user.Role = request.Role;
-        user.WarehouseId = _rolesWithoutWarehouse.Contains(request.Role) ? null : request.WarehouseId;
         user.ModifiedAt = DateTime.UtcNow;
         user.ModifiedBy = modifiedByUserId;
 

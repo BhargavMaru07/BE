@@ -111,12 +111,47 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class, IEnti
             }
             else if (prop.PropertyType.IsEnum)
             {
-                try
+                var values = filter.Value
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(v => v.Trim())
+                    .ToList();
+
+                if (values.Count > 1)
                 {
-                    var enumVal = Enum.Parse(prop.PropertyType, filter.Value, ignoreCase: true);
-                    condition = Expression.Equal(propExpr, Expression.Constant(enumVal, prop.PropertyType));
+                    var enumList = new List<object>();
+                    foreach (var v in values)
+                    {
+                        try { enumList.Add(Enum.Parse(prop.PropertyType, v, ignoreCase: true)); }
+                        catch { }
+                    }
+
+                    if (enumList.Count > 0)
+                    {
+                        // build: new[] { Role.Admin, Role.Manager }.Contains(x.Role)
+                        var typedArray = Array.CreateInstance(prop.PropertyType, enumList.Count);
+                        for (int i = 0; i < enumList.Count; i++)
+                            typedArray.SetValue(enumList[i], i);
+
+                        var containsMethod = typeof(Enumerable)
+                            .GetMethods()
+                            .First(m => m.Name == nameof(Enumerable.Contains) && m.GetParameters().Length == 2)
+                            .MakeGenericMethod(prop.PropertyType);
+
+                        condition = Expression.Call(
+                            containsMethod,
+                            Expression.Constant(typedArray),
+                            propExpr);
+                    }
                 }
-                catch { }
+                else
+                {
+                    try
+                    {
+                        var enumVal = Enum.Parse(prop.PropertyType, filter.Value.Trim(), ignoreCase: true);
+                        condition = Expression.Equal(propExpr, Expression.Constant(enumVal, prop.PropertyType));
+                    }
+                    catch { }
+                }
             }
 
             if (condition is not null)
