@@ -11,6 +11,7 @@ public class QueryParametersValidator : AbstractValidator<QueryParameters>
         "Id",
         "Name",
         "FullName",
+        "Email",
         "CreatedAt",
         "UpdatedAt",
         "Code",

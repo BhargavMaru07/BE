@@ -47,7 +47,7 @@ public class AdminUserManagementService : IAdminUserManagementService
             return ApiResponse<UserResponseDto>.Failure("This Email is used by another account", null, 400);
         }
 
-        if(request.Role == UserRole.Administrator && await _userRepository.ExistsAsync(u => u.Role == UserRole.Administrator))
+        if (request.Role == UserRole.Administrator && await _userRepository.ExistsAsync(u => u.Role == UserRole.Administrator))
         {
             return ApiResponse<UserResponseDto>.Failure("An administrator account already exists. Only one administrator is allowed.", null, 400);
         }
@@ -58,7 +58,7 @@ public class AdminUserManagementService : IAdminUserManagementService
 
         if (!await _emailService.IsEmailDomainValidAsync(request.Email))
         {
-            return ApiResponse<UserResponseDto>.Failure("Invalid email domain. Please check and try again.",null,400);
+            return ApiResponse<UserResponseDto>.Failure("Invalid email domain. Please check and try again.", null, 400);
         }
 
         var passwordHash = _passwordHasher.Hash(request.Password);
@@ -109,7 +109,7 @@ public class AdminUserManagementService : IAdminUserManagementService
     public async Task<ApiResponse<PagedResult<UserSummaryResponse>>> GetUsers(QueryParameters qp)
     {
         qp = _inputNormalizer.NormalizeObject(qp);
-        
+
         var paged = await _userRepository.GetPaginatedAsync(
             qp,
             searchableColumns: ["FullName", "Email"],
@@ -163,39 +163,20 @@ public class AdminUserManagementService : IAdminUserManagementService
             return ApiResponse<UserResponseDto>.Failure(
                 $"User is already {request.Status}.", statusCode: 400);
 
-        
-        //if user is manager then check at least one active manager exists before inactivating per warehouse
-        if (user.Role == UserRole.WarehouseManager && request.Status == UserStatus.Inactive)
+        if (user.Role == UserRole.Administrator)
+            return ApiResponse<UserResponseDto>.Failure("Admin Status can not change", statusCode: 400);
+
+        //if user is manager/keeper then check at least one active manager/keeper exists before inactivating per warehouse
+        if ((user.Role == UserRole.WarehouseManager || user.Role == UserRole.StockKeeper) && request.Status == UserStatus.Inactive)
         {
-            var activeManagersCount = await _userRepository.CountAsync(
-                u => u.Id != userId &&
-                u.Role == UserRole.WarehouseManager &&
-                u.WarehouseId == user.WarehouseId &&
-                u.Status == UserStatus.Active);
+            var activeManagersCount = await ActiveSameRoleCount(user);
 
             if (activeManagersCount == 0)
             {
-                return ApiResponse<UserResponseDto>.Failure(
-                    "Cannot inactivate this user. Each warehouse must have at least one active Warehouse Manager.", statusCode: 400);
+                return ApiResponse<UserResponseDto>.Failure($"Cannot inactivate this user. Each warehouse must have at least one active {user.Role}.", statusCode: 400);
             }
         }
 
-        //if user is stock keeper then check at least one active stock keeper exists before inactivating per warehouse  
-        if(user.Role == UserRole.StockKeeper && request.Status == UserStatus.Inactive)
-        {
-            var activeStockKeepersCount = await _userRepository.CountAsync(
-                u => u.Id != userId &&
-                u.Role == UserRole.StockKeeper &&
-                u.WarehouseId == user.WarehouseId &&
-                u.Status == UserStatus.Active);
-
-            if (activeStockKeepersCount == 0)
-            {
-                return ApiResponse<UserResponseDto>.Failure(
-                    "Cannot inactivate this user. Each warehouse must have at least one active Stock Keeper.", statusCode: 400);
-            }
-        }
-        
         user.Status = request.Status;
         user.ModifiedAt = DateTime.UtcNow;
         user.ModifiedBy = modifiedByUserId;
@@ -232,18 +213,45 @@ public class AdminUserManagementService : IAdminUserManagementService
         if (user.Status == UserStatus.Inactive)
             return ApiResponse<UserResponseDto>.Failure("Cannot change role of an inactive user. Activate the user first.", statusCode: 400);
 
-        var warehouseValidation = await ValidateWarehouseForRole(request.Role, request.WarehouseId);
-        if (warehouseValidation is not null)
-            return warehouseValidation;
+        if (user.Role == request.Role)
+            return ApiResponse<UserResponseDto>.Failure($"User is already {request.Role}.", statusCode: 400);
+
+        if (user.Role == UserRole.WarehouseManager || user.Role == UserRole.StockKeeper)
+        {
+            var activeManagersCount = await ActiveSameRoleCount(user);
+
+            if (activeManagersCount == 0)
+            {
+                return ApiResponse<UserResponseDto>.Failure($"Cannot change Role. Each warehouse must have at least one active {user.Role}", statusCode: 400);
+            }
+        }
+
+        if (_rolesWithoutWarehouse.Contains(user.Role) && _rolesRequiringWarehouse.Contains(request.Role))
+        {
+            if (!request.WarehouseId.HasValue)
+                return ApiResponse<UserResponseDto>.Failure($"{request.Role} must be assigned to a warehouse.", statusCode: 400);
+
+            var warehouseExists = await _warehouseRepo.ExistsAsync(
+                w => w.Id == request.WarehouseId && w.Status == EntityStatus.Active);
+
+            if (!warehouseExists)
+                return ApiResponse<UserResponseDto>.Failure("Warehouse not found or is inactive.", statusCode: 400);
+
+            user.WarehouseId = request.WarehouseId;
+        }
+        else if (_rolesRequiringWarehouse.Contains(user.Role) && _rolesWithoutWarehouse.Contains(request.Role))
+        {
+
+            user.WarehouseId = null;
+        }
 
         user.Role = request.Role;
-        user.WarehouseId = _rolesWithoutWarehouse.Contains(request.Role) ? null : request.WarehouseId;
         user.ModifiedAt = DateTime.UtcNow;
         user.ModifiedBy = modifiedByUserId;
 
         await _userRepository.SaveChangesAsync();
 
-        var updatedUser = await _userRepository.GetAsync(u => u.Id == user.Id , includes: q => q.Include(x => x.Warehouse));
+        var updatedUser = await _userRepository.GetAsync(u => u.Id == user.Id, includes: q => q.Include(x => x.Warehouse));
 
         UserResponseDto response = _mapper.Map<UserResponseDto>(updatedUser);
 
@@ -273,17 +281,55 @@ public class AdminUserManagementService : IAdminUserManagementService
         if (user.WarehouseId == request.WarehouseId)
             return ApiResponse<UserResponseDto>.Failure("User is already assigned to this warehouse.", statusCode: 400);
 
+        if (user.Role == UserRole.WarehouseManager || user.Role == UserRole.StockKeeper)
+        {
+            var activeManagersCount = await ActiveSameRoleCount(user);
+
+            if (activeManagersCount == 0)
+            {
+                return ApiResponse<UserResponseDto>.Failure($"Cannot change warehouse. Each warehouse must have at least one active {user.Role}", statusCode: 400);
+            }
+        }
+
         user.WarehouseId = request.WarehouseId;
         user.ModifiedAt = DateTime.UtcNow;
         user.ModifiedBy = modifiedByUserId;
 
         await _userRepository.SaveChangesAsync();
 
-        var updatedUser = await _userRepository.GetAsync(u => u.Id == user.Id , includes: q => q.Include(x => x.Warehouse));
+        var updatedUser = await _userRepository.GetAsync(u => u.Id == user.Id, includes: q => q.Include(x => x.Warehouse));
 
         UserResponseDto response = _mapper.Map<UserResponseDto>(updatedUser);
 
         return ApiResponse<UserResponseDto>.Success(response, "Warehouse assignment updated successfully.");
+    }
+
+    public async Task<ApiResponse<string>> Deleteuser(int userId, int deletedByUserId)
+    {
+        var user = await _userRepository.GetAsync(u => u.Id == userId, useNoTracking: false);
+
+        if (user is null)
+            return ApiResponse<string>.Failure("User not found.", statusCode: 404);
+
+        if (user.Role == UserRole.Administrator)
+            return ApiResponse<string>.Failure("Administrator account cannot be deleted.", statusCode: 400);
+
+        if (userId == deletedByUserId)
+            return ApiResponse<string>.Failure("You cannot delete your own account.", statusCode: 400);
+
+        if (user.Role == UserRole.WarehouseManager || user.Role == UserRole.StockKeeper)
+        {
+            var activeSameRoleCount = await ActiveSameRoleCount(user);
+
+            if (activeSameRoleCount == 0)
+            {
+                return ApiResponse<string>.Failure($"Cannot delete this user. Each warehouse must have at least one active {user.Role}.", statusCode: 400);
+            }
+        }
+
+        await _userRepository.SoftDeleteAsync(user, deletedByUserId);
+
+        return ApiResponse<string>.Success("User deleted successfully.", "User deleted successfully.");
     }
 
 
@@ -306,5 +352,17 @@ public class AdminUserManagementService : IAdminUserManagementService
         }
 
         return null;
+    }
+
+    private async Task<int> ActiveSameRoleCount(User user)
+    {
+
+        var count = await _userRepository.CountAsync(
+               u => u.Id != user.Id &&
+               u.Role == user.Role &&
+               u.WarehouseId == user.WarehouseId &&
+               u.Status == UserStatus.Active);
+
+        return count;
     }
 }
